@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>물 한 잔의 기적 - 하루 수분 충전기</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Pretentard / Noto Sans KR & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+  <!-- Tone.js for clean web audio sfx -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans KR"', 'sans-serif'],
+            display: ['"Outfit"', '"Noto Sans KR"', 'sans-serif'],
+          },
+          colors: {
+            water: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              200: '#bae6fd',
+              300: '#7dd3fc',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+            }
+          },
+          animation: {
+            'wave-slow': 'wave 6s linear infinite',
+            'wave-fast': 'wave 3.5s linear infinite reverse',
+            'float': 'float 3s ease-in-out infinite',
+            'pulse-gentle': 'pulseGentle 2s ease-in-out infinite',
+          },
+          keyframes: {
+            wave: {
+              '0%': { transform: 'translateX(0)' },
+              '100%': { transform: 'translateX(-50%)' },
+            },
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-6px)' },
+            },
+            pulseGentle: {
+              '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+              '50%': { opacity: '0.85', transform: 'scale(1.02)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Wave SVG Clip Animation */
+    .wave-path {
+      animation: waveMove 4s linear infinite;
+    }
+    .wave-path-back {
+      animation: waveMove 7s linear infinite reverse;
+    }
+    @keyframes waveMove {
+      from { transform: translateX(0); }
+      to { transform: translateX(-300px); }
+    }
+
+    /* Ripple Button Effect */
+    .water-ripple {
+      position: relative;
+      overflow: hidden;
+    }
+    .water-ripple::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: rgba(255, 255, 255, 0.4);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      transition: width 0.4s ease-out, height 0.4s ease-out, opacity 0.4s ease-out;
+    }
+    .water-ripple:active::after {
+      width: 180%;
+      height: 180%;
+      opacity: 1;
+      transition: 0s;
+    }
+
+    /* Subtle Glassmorphism */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+  </style>
+</head>
+
+<body class="bg-gradient-to-br from-sky-50 via-cyan-50/40 to-blue-50 text-slate-800 font-sans min-h-screen flex flex-col antialiased selection:bg-water-400 selection:text-white">
+
+  <!-- Header -->
+  <header class="w-full max-w-4xl mx-auto px-4 sm:px-6 pt-6 pb-2 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500 to-cyan-400 flex items-center justify-center text-white shadow-lg shadow-sky-200">
+        <i data-lucide="droplets" class="w-6 h-6 animate-pulse-gentle"></i>
+      </div>
+      <div>
+        <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+          물 한 잔의 기적
+          <span class="text-[11px] font-bold bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full border border-sky-200">2L 챌린지</span>
+        </h1>
+        <p class="text-xs text-slate-500 font-medium">건강을 깨우는 하루 수분 충전기</p>
+      </div>
+    </div>
+
+    <!-- Top Action Buttons -->
+    <div class="flex items-center gap-2">
+      <!-- Prominent Dedicated Manual Save Button -->
+      <button id="save-status-btn" onclick="manualSaveState()" class="h-10 px-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-md shadow-emerald-200 border border-emerald-400 flex items-center gap-1.5 text-xs font-bold transition-all active:scale-95" title="지금 상태를 안전하게 저장합니다">
+        <i data-lucide="save" id="save-icon" class="w-4 h-4"></i>
+        <span id="save-status-text">저장하기</span>
+      </button>
+
+      <!-- Sound Toggle -->
+      <button id="sound-btn" onclick="toggleSound()" class="w-10 h-10 rounded-xl bg-white/90 border border-slate-200/80 shadow-sm flex items-center justify-center text-slate-600 hover:text-sky-600 hover:border-sky-300 transition-all active:scale-95" title="효과음 켜기/끄기">
+        <i data-lucide="volume-2" id="sound-icon" class="w-4 h-4"></i>
+      </button>
+
+      <!-- Settings / Goal Selector -->
+      <button onclick="toggleGoalModal(true)" class="w-10 h-10 rounded-xl bg-white/90 border border-slate-200/80 shadow-sm flex items-center justify-center text-slate-600 hover:text-sky-600 hover:border-sky-300 transition-all active:scale-95" title="목표 용량 변경">
+        <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+      </button>
+
+      <!-- Reset Today -->
+      <button onclick="confirmReset()" class="h-10 px-3 rounded-xl bg-white/90 border border-slate-200/80 shadow-sm flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50/50 transition-all active:scale-95" title="오늘 기록 초기화">
+        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+        <span class="hidden sm:inline">리셋</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-4 flex flex-col md:flex-row gap-6 items-center justify-center">
+
+    <!-- LEFT: Big Interactive Glass & Visual Fill Area -->
+    <div class="w-full md:w-1/2 flex flex-col items-center">
+      
+      <!-- Interactive SVG Tumbler Container -->
+      <div class="relative w-64 h-80 sm:w-72 sm:h-96 flex items-center justify-center">
+
+        <!-- Outer Glass Tumbler (Realistic SVG with Wave Layers) -->
+        <svg class="w-full h-full drop-shadow-2xl" viewBox="0 0 260 340" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <!-- Water Gradient Front -->
+            <linearGradient id="waterFrontGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.9" />
+              <stop offset="60%" stop-color="#0284c7" stop-opacity="0.95" />
+              <stop offset="100%" stop-color="#0369a1" stop-opacity="1" />
+            </linearGradient>
+
+            <!-- Water Gradient Back (Darker depth) -->
+            <linearGradient id="waterBackGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#0284c7" stop-opacity="0.6" />
+              <stop offset="100%" stop-color="#075985" stop-opacity="0.8" />
+            </linearGradient>
+
+            <!-- Glass Reflection Gradient -->
+            <linearGradient id="glassGlare" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#ffffff" stop-opacity="0.4" />
+              <stop offset="40%" stop-color="#ffffff" stop-opacity="0.1" />
+              <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+            </linearGradient>
+
+            <!-- Tumbler Interior Shape Mask for Clean Liquid Clipping -->
+            <clipPath id="glassInnerClip">
+              <path d="M 45 40 
+                       L 60 290 
+                       Q 62 315 85 315 
+                       L 175 315 
+                       Q 198 315 200 290 
+                       L 215 40 
+                       Z" />
+            </clipPath>
+          </defs>
+
+          <!-- Back Glass Wall shadow -->
+          <path d="M 45 40 L 60 290 Q 62 315 85 315 L 175 315 Q 198 315 200 290 L 215 40 Z" 
+                fill="#e0f2fe" fill-opacity="0.4" />
+
+          <!-- Liquid Content Group (Masked inside glass) -->
+          <g clip-path="url(#glassInnerClip)">
+            <!-- Water Liquid Level Controller (Moves translateY based on %) -->
+            <g id="liquid-level-group" style="transition: transform 0.8s cubic-bezier(0.34, 1.3, 0.64, 1);" transform="translate(0, 315)">
+              
+              <!-- Back Wave (Darker depth) -->
+              <g class="wave-path-back">
+                <path d="M 0 0 
+                         Q 75 -12 150 0 
+                         T 300 0 
+                         T 450 0 
+                         T 600 0 
+                         L 600 350 
+                         L 0 350 Z" 
+                      fill="url(#waterBackGrad)" />
+              </g>
+
+              <!-- Front Wave (Lighter ripple) -->
+              <g class="wave-path">
+                <path d="M 0 0 
+                         Q 75 14 150 0 
+                         T 300 0 
+                         T 450 0 
+                         T 600 0 
+                         L 600 350 
+                         L 0 350 Z" 
+                      fill="url(#waterFrontGrad)" />
+              </g>
+
+              <!-- Floating Bubbles in Water -->
+              <circle cx="95" cy="80" r="3.5" fill="#ffffff" opacity="0.6" class="animate-bounce" style="animation-duration: 2.2s;" />
+              <circle cx="150" cy="120" r="5" fill="#ffffff" opacity="0.4" class="animate-bounce" style="animation-duration: 3s;" />
+              <circle cx="120" cy="180" r="2.5" fill="#ffffff" opacity="0.5" class="animate-bounce" style="animation-duration: 1.8s;" />
+            </g>
+          </g>
+
+          <!-- Measurement Marks on Glass (500ml, 1000ml, 1500ml, 2000ml) -->
+          <g stroke="#94a3b8" stroke-width="1.5" opacity="0.6">
+            <!-- 2000ml (Near Top: y = 75) -->
+            <line x1="195" y1="75" x2="207" y2="75" />
+            <text x="160" y="79" font-size="9" fill="#64748b" font-weight="600" text-anchor="end" font-family="'Outfit', sans-serif">2000ml</text>
+
+            <!-- 1500ml (y = 135) -->
+            <line x1="190" y1="135" x2="200" y2="135" />
+            <text x="160" y="139" font-size="9" fill="#64748b" font-weight="600" text-anchor="end" font-family="'Outfit', sans-serif">1500ml</text>
+
+            <!-- 1000ml (y = 195) -->
+            <line x1="185" y1="195" x2="197" y2="195" />
+            <text x="160" y="199" font-size="9" fill="#64748b" font-weight="600" text-anchor="end" font-family="'Outfit', sans-serif">1000ml</text>
+
+            <!-- 500ml (y = 255) -->
+            <line x1="180" y1="255" x2="190" y2="255" />
+            <text x="160" y="259" font-size="9" fill="#64748b" font-weight="600" text-anchor="end" font-family="'Outfit', sans-serif">500ml</text>
+          </g>
+
+          <!-- Glass Thickness Outer Rim & Bottom Base -->
+          <path d="M 45 40 
+                   L 60 290 
+                   Q 62 315 85 315 
+                   L 175 315 
+                   Q 198 315 200 290 
+                   L 215 40 
+                   Z" 
+                stroke="#94a3b8" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.5" />
+
+          <!-- Glass Lip Top Rim -->
+          <ellipse cx="130" cy="40" rx="85" ry="10" stroke="#94a3b8" stroke-width="2.5" fill="none" opacity="0.6" />
+
+          <!-- Vertical Light Highlight / Glare on Front Glass -->
+          <path d="M 58 45 L 72 285 Q 73 295 85 295 L 98 295 L 82 45 Z" fill="url(#glassGlare)" />
+        </svg>
+
+        <!-- Center Numerical Overlay (Percentage & Hydration Stage) -->
+        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
+          <span id="display-percent" class="font-display text-4xl sm:text-5xl font-extrabold text-slate-800 drop-shadow-sm transition-all">0%</span>
+          <span id="display-stage-label" class="text-xs sm:text-sm font-semibold text-slate-500 mt-1 px-2.5 py-0.5 rounded-full bg-white/70 backdrop-blur-sm border border-slate-200/50 shadow-sm">
+            수분 충전 시작!
+          </span>
+        </div>
+
+        <!-- 100% Goal Celebration Badge -->
+        <div id="goal-badge" class="absolute -top-3 bg-gradient-to-r from-amber-500 to-yellow-400 text-white font-extrabold text-xs px-3.5 py-1.5 rounded-full shadow-lg shadow-amber-200/60 flex items-center gap-1.5 transform scale-0 transition-transform duration-500">
+          <i data-lucide="crown" class="w-4 h-4"></i>
+          <span>오늘 목표 완료!</span>
+        </div>
+      </div>
+
+      <!-- Quick Slogan & Reminder -->
+      <p id="health-tip" class="text-xs text-center text-slate-500 mt-2 max-w-xs transition-opacity duration-300">
+        💡 성인 하루 권장 수분 섭취량은 약 2L (종이컵 기준 8~10잔)입니다.
+      </p>
+
+    </div>
+
+    <!-- RIGHT: Intake Controls, Progress Stats & History -->
+    <div class="w-full md:w-1/2 flex flex-col gap-4">
+
+      <!-- Today's Intake Status Card -->
+      <div class="glass-card rounded-3xl p-5 sm:p-6 border border-white/80 shadow-xl shadow-sky-900/5 flex flex-col justify-between">
+        
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <span class="text-xs font-bold text-sky-600 uppercase tracking-wider flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-sky-500 animate-ping"></span>
+              오늘 마신 물
+            </span>
+            <div class="flex items-baseline gap-2 mt-1">
+              <span id="current-intake-text" class="font-display text-4xl font-extrabold text-slate-900 tracking-tight">0</span>
+              <span class="text-slate-500 font-semibold text-sm">/ <span id="target-goal-text">2,000</span> ml</span>
+            </div>
+          </div>
+
+          <div class="text-right">
+            <span class="text-xs text-slate-400 font-medium">남은 수분</span>
+            <p id="remaining-text" class="text-base font-bold text-sky-700">2,000 ml</p>
+          </div>
+        </div>
+
+        <!-- Linear Progress Bar -->
+        <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden p-0.5 border border-slate-200/60">
+          <div id="linear-progress-bar" class="bg-gradient-to-r from-sky-400 via-sky-500 to-cyan-400 h-full rounded-full transition-all duration-500" style="width: 0%;"></div>
+        </div>
+
+        <!-- Intake Cup Units -->
+        <div class="flex items-center justify-between text-[11px] text-slate-400 mt-2 font-medium">
+          <span id="cups-count-text">💧 0잔 섭취 (200ml 기준)</span>
+          <span id="cups-left-text">10잔 남음</span>
+        </div>
+      </div>
+
+      <!-- Quick Add Cup Buttons -->
+      <div class="glass-card rounded-3xl p-5 border border-white/80 shadow-xl shadow-sky-900/5">
+        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center justify-between">
+          <span class="flex items-center gap-1.5">
+            <i data-lucide="cup-soda" class="w-4 h-4 text-sky-500"></i>
+            원클릭 물 추가하기
+          </span>
+          <span class="text-[10px] text-slate-400">터치 시 즉시 충전</span>
+        </h3>
+
+        <!-- Grid of Buttons -->
+        <div class="grid grid-cols-3 gap-2.5">
+          <!-- +100ml -->
+          <button onclick="addWater(100)" class="water-ripple flex flex-col items-center justify-center p-3 rounded-2xl bg-sky-50/70 hover:bg-sky-100/80 border border-sky-100 hover:border-sky-300 text-sky-800 transition active:scale-95 group">
+            <i data-lucide="coffee" class="w-5 h-5 text-sky-500 group-hover:-translate-y-0.5 transition-transform"></i>
+            <span class="text-xs font-extrabold mt-1">+100ml</span>
+            <span class="text-[10px] text-slate-400 font-medium">반 컵</span>
+          </button>
+
+          <!-- +200ml (Standard Cup) -->
+          <button onclick="addWater(200)" class="water-ripple flex flex-col items-center justify-center p-3 rounded-2xl bg-gradient-to-b from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white shadow-md shadow-sky-200 transition active:scale-95 group">
+            <i data-lucide="glass-water" class="w-5 h-5 text-sky-100 group-hover:-translate-y-0.5 transition-transform"></i>
+            <span class="text-xs font-black mt-1">+200ml</span>
+            <span class="text-[10px] text-sky-100 font-medium">기본 종이컵</span>
+          </button>
+
+          <!-- +500ml (Tumbler) -->
+          <button onclick="addWater(500)" class="water-ripple flex flex-col items-center justify-center p-3 rounded-2xl bg-sky-50/70 hover:bg-sky-100/80 border border-sky-100 hover:border-sky-300 text-sky-800 transition active:scale-95 group">
+            <i data-lucide="cylinder" class="w-5 h-5 text-sky-500 group-hover:-translate-y-0.5 transition-transform"></i>
+            <span class="text-xs font-extrabold mt-1">+500ml</span>
+            <span class="text-[10px] text-slate-400 font-medium">텀블러 한 병</span>
+          </button>
+        </div>
+
+        <!-- Custom Volume Input Bar -->
+        <div class="mt-3.5 flex gap-2">
+          <div class="relative flex-1">
+            <input type="number" id="custom-amount-input" min="10" max="2000" step="50" placeholder="직접 입력 (ml)" 
+                   class="w-full text-xs font-semibold px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-400/40 focus:border-sky-500 transition">
+            <span class="absolute right-3 top-2.5 text-xs text-slate-400">ml</span>
+          </div>
+          <button onclick="addCustomWater()" class="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition active:scale-95 flex items-center gap-1">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span>추가</span>
+          </button>
+          <button onclick="undoLastIntake()" class="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium text-xs rounded-xl transition active:scale-95" title="마지막 섭취 취소">
+            <i data-lucide="undo-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Today's Intake Log Accordion -->
+      <div class="glass-card rounded-2xl p-4 border border-white/80 shadow-md shadow-sky-900/5">
+        <div class="flex items-center justify-between text-xs font-bold text-slate-600 mb-2">
+          <span class="flex items-center gap-1.5">
+            <i data-lucide="history" class="w-3.5 h-3.5 text-sky-500"></i>
+            오늘의 섭취 타임라인
+          </span>
+          <span id="log-count-text" class="text-[11px] font-semibold text-slate-400">0회 기록됨</span>
+        </div>
+
+        <div id="intake-log-list" class="max-h-28 overflow-y-auto space-y-1.5 pr-1 text-xs">
+          <!-- Empty State -->
+          <div id="empty-log-state" class="text-center py-4 text-slate-400 text-xs">
+            아직 기록이 없습니다. 물을 마시고 채워보세요!
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Goal Setting Modal -->
+  <div id="goal-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-200">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 transform scale-95 transition-transform duration-200">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+          <i data-lucide="target" class="w-5 h-5 text-sky-500"></i>
+          일일 권장 목표 설정
+        </h3>
+        <button onclick="toggleGoalModal(false)" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-500 leading-relaxed mb-4">
+        체중과 활동량에 맞춰 하루 수분 목표량을 조절할 수 있습니다. (성인 평균 권장량 2,000ml)
+      </p>
+
+      <div class="grid grid-cols-3 gap-2 mb-4">
+        <button onclick="setTargetGoal(1500)" class="py-2.5 rounded-xl border border-slate-200 text-xs font-bold hover:border-sky-500 hover:bg-sky-50 transition">
+          1,500ml<br><span class="text-[10px] text-slate-400 font-normal">가벼운 하루</span>
+        </button>
+        <button onclick="setTargetGoal(2000)" class="py-2.5 rounded-xl border-2 border-sky-500 bg-sky-50/50 text-xs font-bold text-sky-800 transition">
+          2,000ml<br><span class="text-[10px] text-sky-600 font-semibold">표준 권장량</span>
+        </button>
+        <button onclick="setTargetGoal(2500)" class="py-2.5 rounded-xl border border-slate-200 text-xs font-bold hover:border-sky-500 hover:bg-sky-50 transition">
+          2,500ml<br><span class="text-[10px] text-slate-400 font-normal">운동/활동형</span>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-2 mb-4">
+        <input type="number" id="custom-goal-input" step="100" min="500" max="5000" placeholder="직접 입력 (ml)"
+               class="flex-1 text-sm font-semibold px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-400">
+        <button onclick="applyCustomGoal()" class="px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl transition">
+          적용
+        </button>
+      </div>
+
+      <button onclick="toggleGoalModal(false)" class="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
+        닫기
+      </button>
+    </div>
+  </div>
+
+  <!-- Custom Reset Confirmation Modal (Replaces browser confirm) -->
+  <div id="reset-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-200">
+    <div class="bg-white rounded-3xl p-6 max-w-xs w-full shadow-2xl border border-slate-100 text-center transform scale-95 transition-transform duration-200">
+      <div class="w-12 h-12 mx-auto rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 mb-3 shadow-inner">
+        <i data-lucide="rotate-ccw" class="w-6 h-6"></i>
+      </div>
+      <h3 class="text-base font-bold text-slate-900 mb-1">오늘 기록 초기화</h3>
+      <p class="text-xs text-slate-500 leading-relaxed mb-5">
+        오늘 마신 수분량과 타임라인 기록을<br>모두 0ml로 리셋하시겠습니까?
+      </p>
+
+      <div class="flex gap-2">
+        <button onclick="toggleResetModal(false)" class="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition active:scale-95">
+          취소
+        </button>
+        <button onclick="executeReset()" class="flex-1 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs shadow-md shadow-rose-200 transition active:scale-95">
+          초기화
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast-message" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
+    <div class="bg-slate-900/90 backdrop-blur-md text-white px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-semibold">
+      <i id="toast-icon" data-lucide="sparkles" class="w-4 h-4 text-sky-400"></i>
+      <span id="toast-text">수분을 충전했습니다!</span>
+    </div>
+  </div>
+
+  <!-- Application Logic & Firebase Cloud Persistence -->
+  <script type="module">
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // Firebase Core Variables
+    let db = null;
+    let auth = null;
+    let currentUser = null;
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'water-tracker-miracle';
+
+    // State Definition
+    const appState = {
+      targetGoal: 2000,
+      currentIntake: 0,
+      logs: [],
+      soundEnabled: true,
+      audioInitialized: false,
+      congratulatedToday: false
+    };
+
+    // Health Tips List
+    const healthTips = [
+      "💡 아침 공복에 마시는 물 한 잔은 신진대사를 24% 활성화합니다.",
+      "💡 갈증을 느꼈을 때는 이미 체내 수분이 1~2% 부족한 탈수 상태입니다.",
+      "💡 충분한 수분 섭취는 피부 탄력과 피로 회복에 탁월한 효과가 있습니다.",
+      "💡 식사 30분 전 마시는 물 한 잔은 소화를 돕고 과식을 예방해 줍니다.",
+      "💡 커피나 차를 마신 후에는 같은 양의 순수한 물을 보충해 주는 것이 좋습니다.",
+      "💡 꾸준한 수분 공급은 집중력과 뇌 기능을 최적 상태로 유지해 줍니다."
+    ];
+
+    // ==========================================
+    // 1. Cloud Database Initialization
+    // ==========================================
+    async function initCloudApp() {
+      try {
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+          const firebaseConfig = JSON.parse(__firebase_config);
+          
+          let app;
+          // 중복 초기화 방지
+          if (getApps().length === 0) {
+            app = initializeApp(firebaseConfig);
+          } else {
+            app = getApp();
+          }
+
+          db = getFirestore(app);
+          auth = getAuth(app);
+
+          // Required Authentication flow
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(auth);
+          }
+
+          currentUser = auth.currentUser;
+          
+          // Once Auth is complete, load today's data securely
+          await loadFromCloud();
+        } else {
+          // 클라우드 설정이 없을 경우 로컬 임시 스토리지로 부드럽게 전환
+          loadFromLocalFallback();
+        }
+      } catch (err) {
+        console.warn("Cloud Initialization Error (Falling back to local):", err);
+        loadFromLocalFallback();
+      }
+    }
+
+    // ==========================================
+    // 2. Storage Load & Save (Cloud + Local Fallback)
+    // ==========================================
+    function getTodayKey() {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    }
+
+    function loadFromLocalFallback() {
+      const today = getTodayKey();
+      try {
+        const data = JSON.parse(localStorage.getItem('water_tracker_' + today));
+        if (data) {
+          appState.targetGoal = Number(data.targetGoal) || 2000;
+          appState.currentIntake = Number(data.currentIntake) || 0;
+          appState.logs = Array.isArray(data.logs) ? data.logs : [];
+          appState.soundEnabled = data.soundEnabled !== undefined ? data.soundEnabled : true;
+          appState.congratulatedToday = Boolean(data.congratulatedToday);
+        } else {
+          appState.targetGoal = 2000;
+          appState.currentIntake = 0;
+          appState.logs = [];
+          appState.congratulatedToday = false;
+        }
+      } catch (e) {
+        console.warn("Local storage error:", e);
+      }
+      
+      updateUI();
+      syncSoundUI();
+    }
+
+    async function loadFromCloud() {
+      if (!currentUser || !db) return;
+      const today = getTodayKey();
+      
+      try {
+        // Path Rule: /artifacts/{appId}/users/{userId}/{collectionName}/{documentId}
+        const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'water_tracker', today);
+        const snap = await getDoc(docRef);
+
+        if (snap.exists()) {
+          const data = snap.data();
+          appState.targetGoal = Number(data.targetGoal) || 2000;
+          appState.currentIntake = Number(data.currentIntake) || 0;
+          appState.logs = Array.isArray(data.logs) ? data.logs : [];
+          appState.soundEnabled = data.soundEnabled !== undefined ? data.soundEnabled : true;
+          appState.congratulatedToday = Boolean(data.congratulatedToday);
+          
+          showToast("이전 기록을 성공적으로 복원했습니다 ☁️💧", "check-circle");
+        } else {
+          // No data for today -> Start fresh
+          appState.targetGoal = 2000;
+          appState.currentIntake = 0;
+          appState.logs = [];
+          appState.congratulatedToday = false;
+        }
+      } catch (e) {
+        console.error("Cloud Load Error:", e);
+        loadFromLocalFallback(); // 실패시 로컬로 전환
+        return;
+      }
+      
+      updateUI();
+      syncSoundUI();
+    }
+
+    async function saveState(notifyUI = true) {
+      if (db && currentUser) {
+        await saveToCloud(notifyUI);
+      } else {
+        saveToLocalFallback(notifyUI);
+      }
+    }
+
+    function saveToLocalFallback(notifyUI = true) {
+      const today = getTodayKey();
+      try {
+        const payload = {
+          targetGoal: appState.targetGoal,
+          currentIntake: appState.currentIntake,
+          logs: appState.logs,
+          soundEnabled: appState.soundEnabled,
+          congratulatedToday: appState.congratulatedToday,
+        };
+        localStorage.setItem('water_tracker_' + today, JSON.stringify(payload));
+        if (notifyUI) indicateSavedSuccess();
+      } catch (e) {
+        if (notifyUI) showToast("저장소 접근이 제한되었습니다.", "alert-circle");
+      }
+    }
+
+    async function saveToCloud(notifyUI = true) {
+      if (!currentUser || !db) return;
+      
+      const payload = {
+        date: getTodayKey(),
+        targetGoal: appState.targetGoal,
+        currentIntake: appState.currentIntake,
+        logs: appState.logs,
+        soundEnabled: appState.soundEnabled,
+        congratulatedToday: appState.congratulatedToday,
+        savedAt: Date.now()
+      };
+
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'water_tracker', payload.date);
+        await setDoc(docRef, payload);
+        
+        if (notifyUI) {
+          indicateSavedSuccess();
+        }
+      } catch (e) {
+        console.error("Cloud Save Error:", e);
+        if (notifyUI) showToast("저장 지연중...", "loader");
+        saveToLocalFallback(false); // 클라우드 실패시 로컬에라도 백업
+      }
+    }
+
+    // ==========================================
+    // 3. Application Logic
+    // ==========================================
+    let synth = null;
+    let cheerSynth = null;
+
+    function initAudio() {
+      if (appState.audioInitialized) return;
+      try {
+        synth = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: "sine" },
+          envelope: { attack: 0.01, decay: 0.15, sustain: 0.05, release: 0.3 }
+        }).toDestination();
+        synth.volume.value = -8;
+
+        cheerSynth = new Tone.PolySynth(Tone.Synth, {
+          oscillator: { type: "triangle" },
+          envelope: { attack: 0.02, decay: 0.3, sustain: 0.2, release: 0.8 }
+        }).toDestination();
+        cheerSynth.volume.value = -6;
+
+        appState.audioInitialized = true;
+      } catch (e) {}
+    }
+
+    function playWaterSound() {
+      if (!appState.soundEnabled) return;
+      try {
+        Tone.start();
+        initAudio();
+        if (synth) {
+          const notes = ["C5", "E5", "G5", "B5", "D6"];
+          const randomNote = notes[Math.floor(Math.random() * notes.length)];
+          synth.triggerAttackRelease(randomNote, "8n");
+        }
+      } catch (err) {}
+    }
+
+    function playCelebrationSound() {
+      if (!appState.soundEnabled) return;
+      try {
+        Tone.start();
+        initAudio();
+        if (cheerSynth) {
+          const now = Tone.now();
+          cheerSynth.triggerAttackRelease(["C5", "E5"], "8n", now);
+          cheerSynth.triggerAttackRelease(["E5", "G5"], "8n", now + 0.15);
+          cheerSynth.triggerAttackRelease(["G5", "C6"], "8n", now + 0.3);
+          cheerSynth.triggerAttackRelease(["C6", "E6", "G6"], "4n", now + 0.45);
+        }
+      } catch (err) {}
+    }
+
+    function toggleSound() {
+      appState.soundEnabled = !appState.soundEnabled;
+      syncSoundUI();
+      if (appState.soundEnabled) {
+        showToast("효과음이 켜졌습니다 🔔", "volume-2");
+      } else {
+        showToast("효과음이 꺼졌습니다 🔇", "volume-x");
+      }
+      saveState(false);
+    }
+    
+    function syncSoundUI() {
+      const icon = document.getElementById('sound-icon');
+      if (icon) {
+        icon.setAttribute('data-lucide', appState.soundEnabled ? 'volume-2' : 'volume-x');
+        lucide.createIcons();
+      }
+    }
+
+    function manualSaveState() {
+      saveState(true);
+      showToast("현재 수분 상태가 영구 저장되었습니다! 💾", "check-circle");
+    }
+
+    function indicateSavedSuccess() {
+      const btn = document.getElementById('save-status-btn');
+      const text = document.getElementById('save-status-text');
+      const icon = document.getElementById('save-icon');
+      if (!btn || !text || !icon) return;
+
+      btn.classList.remove('bg-emerald-500', 'hover:bg-emerald-600');
+      btn.classList.add('bg-emerald-700');
+      text.textContent = '저장 완료!';
+      icon.setAttribute('data-lucide', 'check-check');
+      lucide.createIcons();
+
+      setTimeout(() => {
+        text.textContent = '저장하기';
+        icon.setAttribute('data-lucide', 'save');
+        btn.classList.remove('bg-emerald-700');
+        btn.classList.add('bg-emerald-500', 'hover:bg-emerald-600');
+        lucide.createIcons();
+      }, 1500);
+    }
+
+    function addWater(amount) {
+      if (amount <= 0) return;
+      const prevIntake = appState.currentIntake;
+      appState.currentIntake += amount;
+
+      const timeString = new Date().toLocaleTimeString('ko-KR', {
+        hour: '2-digit', minute: '2-digit', hour12: true
+      });
+
+      appState.logs.unshift({ id: Date.now(), amount: amount, time: timeString });
+
+      playWaterSound();
+      showToast(`시원한 물 +${amount}ml 충전 & 자동저장 완료! 💧`, "check");
+
+      if (appState.currentIntake >= appState.targetGoal && prevIntake < appState.targetGoal) {
+        triggerConfettiCelebration();
+      }
+
+      updateUI();
+      saveState(false);
+    }
+
+    function addCustomWater() {
+      const input = document.getElementById('custom-amount-input');
+      const val = parseInt(input.value, 10);
+      if (!val || val <= 0) {
+        showToast("추가할 용량을 올바르게 입력해주세요.", "alert-circle");
+        return;
+      }
+      addWater(val);
+      input.value = '';
+    }
+
+    function undoLastIntake() {
+      if (appState.logs.length === 0) {
+        showToast("취소할 최근 기록이 없습니다.", "info");
+        return;
+      }
+      const removed = appState.logs.shift();
+      appState.currentIntake = Math.max(0, appState.currentIntake - removed.amount);
+      if (appState.currentIntake < appState.targetGoal) {
+        appState.congratulatedToday = false;
+      }
+      showToast(`직전 기록 -${removed.amount}ml을 취소했습니다.`, "undo-2");
+      updateUI();
+      saveState(true);
+    }
+
+    function triggerConfettiCelebration() {
+      appState.congratulatedToday = true;
+      playCelebrationSound();
+
+      const count = 200;
+      const defaults = { origin: { y: 0.7 } };
+      function fire(particleRatio, opts) {
+        confetti(Object.assign({}, defaults, opts, { particleCount: Math.floor(count * particleRatio) }));
+      }
+      fire(0.25, { spread: 26, startVelocity: 55 });
+      fire(0.2, { spread: 60 });
+      fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
+      fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
+      fire(0.1, { spread: 120, startVelocity: 45 });
+
+      showToast("🎉 축하합니다! 오늘 하루 수분 목표를 달성했습니다!", "crown");
+    }
+
+    function toggleResetModal(show) {
+      const modal = document.getElementById('reset-modal');
+      const box = modal.querySelector('div');
+      if (show) {
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+          modal.classList.remove('opacity-0');
+          box.classList.remove('scale-95');
+          box.classList.add('scale-100');
+        }, 10);
+      } else {
+        modal.classList.add('opacity-0');
+        box.classList.remove('scale-100');
+        box.classList.add('scale-95');
+        setTimeout(() => modal.classList.add('hidden'), 200);
+      }
+    }
+
+    function confirmReset() { toggleResetModal(true); }
+
+    function executeReset() {
+      appState.currentIntake = 0;
+      appState.logs = [];
+      appState.congratulatedToday = false;
+      
+      toggleResetModal(false);
+      updateUI();
+      saveState(true);
+      showToast("기록이 0ml로 초기화되었습니다 🫧", "rotate-ccw");
+    }
+
+    function setTargetGoal(goal) {
+      appState.targetGoal = goal;
+      toggleGoalModal(false);
+      showToast(`목표가 ${goal.toLocaleString()}ml로 설정되었습니다.`, "target");
+      saveState(true);
+      updateUI();
+    }
+
+    function applyCustomGoal() {
+      const input = document.getElementById('custom-goal-input');
+      const val = parseInt(input.value, 10);
+      if (!val || val < 500) {
+        showToast("목표는 최소 500ml 이상 설정해주세요.", "alert-circle");
+        return;
+      }
+      setTargetGoal(val);
+      input.value = '';
+    }
+
+    function toggleGoalModal(show) {
+      const modal = document.getElementById('goal-modal');
+      const box = modal.querySelector('div');
+      if (show) {
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+          modal.classList.remove('opacity-0');
+          box.classList.remove('scale-95');
+          box.classList.add('scale-100');
+        }, 10);
+      } else {
+        modal.classList.add('opacity-0');
+        box.classList.remove('scale-100');
+        box.classList.add('scale-95');
+        setTimeout(() => modal.classList.add('hidden'), 200);
+      }
+    }
+
+    let toastTimeout = null;
+    function showToast(text, iconName = "check") {
+      const toast = document.getElementById('toast-message');
+      const toastText = document.getElementById('toast-text');
+      const toastIcon = document.getElementById('toast-icon');
+
+      toastText.innerText = text;
+      toastIcon.setAttribute('data-lucide', iconName);
+      lucide.createIcons();
+
+      clearTimeout(toastTimeout);
+      toast.classList.remove('translate-y-24', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      toastTimeout = setTimeout(() => {
+        toast.classList.add('translate-y-24', 'opacity-0');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 2600);
+    }
+
+    function updateUI() {
+      const percentage = Math.min(100, Math.round((appState.currentIntake / appState.targetGoal) * 100)) || 0;
+      const remaining = Math.max(0, appState.targetGoal - appState.currentIntake);
+      const cupsCount = (appState.currentIntake / 200).toFixed(1);
+      const cupsLeft = Math.ceil(remaining / 200);
+
+      document.getElementById('current-intake-text').textContent = appState.currentIntake.toLocaleString();
+      document.getElementById('target-goal-text').textContent = appState.targetGoal.toLocaleString();
+      document.getElementById('remaining-text').textContent = `${remaining.toLocaleString()} ml`;
+      document.getElementById('display-percent').textContent = `${percentage}%`;
+      document.getElementById('linear-progress-bar').style.width = `${percentage}%`;
+      document.getElementById('cups-count-text').textContent = `💧 약 ${cupsCount}잔 섭취 (200ml 기준)`;
+      document.getElementById('cups-left-text').textContent = remaining > 0 ? `약 ${cupsLeft}잔 남음` : '목표 달성 완료!';
+
+      const emptyY = 315;
+      const fullY = 65;
+      const fillHeight = emptyY - ((emptyY - fullY) * (percentage / 100));
+      const liquidGroup = document.getElementById('liquid-level-group');
+      liquidGroup.style.transform = `translate(0, ${fillHeight}px)`;
+
+      const stageLabel = document.getElementById('display-stage-label');
+      if (percentage === 0) {
+        stageLabel.textContent = "수분 충전 시작!";
+        stageLabel.className = "text-xs font-semibold text-slate-500 mt-1 px-2.5 py-0.5 rounded-full bg-white/70 border border-slate-200/50 shadow-sm";
+      } else if (percentage < 30) {
+        stageLabel.textContent = "가벼운 시작 💧";
+        stageLabel.className = "text-xs font-semibold text-sky-600 mt-1 px-2.5 py-0.5 rounded-full bg-sky-50 border border-sky-200 shadow-sm";
+      } else if (percentage < 70) {
+        stageLabel.textContent = "생기 가득 순항 중 ✨";
+        stageLabel.className = "text-xs font-semibold text-cyan-700 mt-1 px-2.5 py-0.5 rounded-full bg-cyan-50 border border-cyan-200 shadow-sm";
+      } else if (percentage < 100) {
+        stageLabel.textContent = "목표 달성 직전! 🔥";
+        stageLabel.className = "text-xs font-semibold text-indigo-700 mt-1 px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 shadow-sm";
+      } else {
+        stageLabel.textContent = "수분 충전 100% 완료! 👑";
+        stageLabel.className = "text-xs font-bold text-amber-700 mt-1 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 shadow-sm";
+      }
+
+      const badge = document.getElementById('goal-badge');
+      if (percentage >= 100) {
+        badge.classList.remove('scale-0');
+        badge.classList.add('scale-100');
+      } else {
+        badge.classList.remove('scale-100');
+        badge.classList.add('scale-0');
+      }
+
+      renderLogs();
+    }
+
+    function renderLogs() {
+      const container = document.getElementById('intake-log-list');
+      const logCount = document.getElementById('log-count-text');
+      logCount.textContent = `${appState.logs.length}회 기록됨`;
+
+      if (appState.logs.length === 0) {
+        container.innerHTML = `
+          <div id="empty-log-state" class="text-center py-4 text-slate-400 text-xs">
+            아직 기록이 없습니다. 물을 마시고 채워보세요!
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = appState.logs.map(log => `
+        <div class="flex items-center justify-between p-2 rounded-xl bg-white/70 border border-slate-100 hover:bg-sky-50/50 transition-colors">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-lg bg-sky-100 text-sky-600 flex items-center justify-center font-bold text-[10px]">
+              +${log.amount}
+            </span>
+            <span class="font-bold text-slate-700">${log.amount} ml</span>
+          </div>
+          <span class="text-[11px] text-slate-400 font-medium">${log.time}</span>
+        </div>
+      `).join('');
+    }
+
+    // ==========================================
+    // 4. Global Function Bindings for HTML onclick
+    // ==========================================
+    window.addWater = addWater;
+    window.addCustomWater = addCustomWater;
+    window.undoLastIntake = undoLastIntake;
+    window.manualSaveState = manualSaveState;
+    window.toggleSound = toggleSound;
+    window.toggleGoalModal = toggleGoalModal;
+    window.confirmReset = confirmReset;
+    window.executeReset = executeReset;
+    window.toggleResetModal = toggleResetModal;
+    window.setTargetGoal = setTargetGoal;
+    window.applyCustomGoal = applyCustomGoal;
+
+    // ==========================================
+    // 5. App Initialization & Event Listeners
+    // ==========================================
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      const tipEl = document.getElementById('health-tip');
+      if (tipEl) {
+        tipEl.textContent = healthTips[Math.floor(Math.random() * healthTips.length)];
+      }
+      
+      // Start Cloud Authentication and DB fetch
+      initCloudApp();
+    });
+
+    // Auto-save when leaving or switching tabs
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') saveState(false);
+    });
+    window.addEventListener('pagehide', () => saveState(false));
+    window.addEventListener('beforeunload', () => saveState(false));
+
+  </script>
+</body>
+</html>
